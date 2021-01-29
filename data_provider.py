@@ -2,6 +2,11 @@ import keras
 import numpy as np
 import data_utils
 
+import tensorflow as tf
+
+# NOTE: uncomment this if train using GPU
+physical_devices = tf.config.list_physical_devices('GPU') 
+tf.config.experimental.set_memory_growth(physical_devices[0], True)
 
 class Datasets(object):
     def __init__(self):

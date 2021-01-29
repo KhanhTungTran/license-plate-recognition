@@ -59,7 +59,7 @@ def draw_labels_and_boxes(image, labels, boxes):
     y_max = round(boxes[1] + boxes[3])
 
     image = cv2.rectangle(image, (x_min, y_min), (x_max, y_max), (255, 0, 255), thickness=2)
-    # image = cv2.putText(image, labels, (x_min - 20, y_min), cv2.FONT_HERSHEY_SIMPLEX, fontScale=1.25, color=(0, 0, 255), thickness=2)
+    image = cv2.putText(image, labels, (x_min - 20, y_min), cv2.FONT_HERSHEY_SIMPLEX, fontScale=1.25, color=(0, 0, 255), thickness=2)
 
     return image
 
