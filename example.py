@@ -45,7 +45,8 @@ while cap.isOpened():
         print(i)
         if i == 200:
             break
-    except:
+    except Exception as e:
+        print(e)
         continue
 
 cv2.destroyAllWindows()

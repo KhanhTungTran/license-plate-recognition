@@ -1,5 +1,6 @@
 import cv2
 import numpy as np
+from numpy.lib.function_base import angle
 from skimage import measure
 from imutils import perspective
 import imutils
@@ -7,7 +8,7 @@ from data_utils import order_points, convert2Square, draw_labels_and_boxes
 from detect import detectNumberPlate
 from model import CNN_Model
 from skimage.filters import threshold_local
-import pytesseract
+import math
 
 ALPHA_DICT = {0: 'A', 1: 'B', 2: 'C', 3: 'D', 4: 'E', 5: 'F', 6: 'G', 7: 'H', 8: 'K', 9: 'L', 10: 'M', 11: 'N', 12: 'P',
               13: 'R', 14: 'S', 15: 'T', 16: 'U', 17: 'V', 18: 'X', 19: 'Y', 20: 'Z', 21: '0', 22: '1', 23: '2', 24: '3',
@@ -46,15 +47,15 @@ class E2E(object):
             # segmentation
             self.segmentation(LpRegion)
 
-            # # recognize characters
-            # self.recognizeChar()
+            # recognize characters
+            self.recognizeChar()
 
-            # # format and display license plate
-            # license_plate = self.format()
-            predicted_result = pytesseract.image_to_string(LpRegion, lang ='eng', 
-            config ='--oem 3 --psm 6 -c tessedit_char_whitelist=ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789') 
+            # format and display license plate
+            license_plate = self.format()
+            # predicted_result = pytesseract.image_to_string(LpRegion, lang ='eng', 
+            # config ='--oem 3 --psm 6 -c tessedit_char_whitelist=ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789') 
             
-            license_plate = "".join(predicted_result.split()).replace(":", "").replace("-", "") 
+            # license_plate = "".join(predicted_result.split()).replace(":", "").replace("-", "") 
 
             # draw labels
             self.image = draw_labels_and_boxes(self.image, license_plate, coordinate)
@@ -69,12 +70,29 @@ class E2E(object):
         # adaptive threshold
         T = threshold_local(V, 15, offset=10, method="gaussian")
         thresh = (V > T).astype("uint8") * 255
-        cv2.imwrite("step2_1.png", thresh)
         # convert black pixel of digits to white pixel
         thresh = cv2.bitwise_not(thresh)
-        cv2.imwrite("step2_2.png", thresh)
+        # cv2.imwrite("step2_2.png", thresh)
         thresh = imutils.resize(thresh, width=400)
-        thresh = cv2.medianBlur(thresh, 5)
+        lines = cv2.HoughLinesP(image=thresh,rho=1,theta=np.pi/180, threshold=200,lines=np.array([]), minLineLength=300,maxLineGap=20)
+
+        angle = 0
+        for line in lines:
+            my_degree = math.degrees(math.atan2(line[0][3]-line[0][1], line[0][2]-line[0][0]))
+            if -45 < my_degree < 45:
+                angle += my_degree
+        angle /= lines.shape[0]
+
+        # Rotate image to deskew
+        (h, w) = thresh.shape[:2]
+        center = (w // 2, h // 2)
+        M = cv2.getRotationMatrix2D(center, angle, 1.0)
+        thresh = cv2.warpAffine(thresh, M, (w, h), flags=cv2.INTER_CUBIC, borderMode=cv2.BORDER_REPLICATE)
+        
+        # thresh = cv2.medianBlur(thresh, 5)
+        # cv2.imshow("thresh", thresh)
+        # cv2.waitKey(0)
+        # cv2.destroyAllWindows()
 
         # connected components analysis
         labels = measure.label(thresh, connectivity=2, background=0)
@@ -108,6 +126,9 @@ class E2E(object):
                     square_candidate = cv2.resize(square_candidate, (28, 28), cv2.INTER_AREA)
                     # cv2.imwrite('./characters/' + str(y) + "_" + str(x) + ".png", cv2.resize(square_candidate, (56, 56), cv2.INTER_AREA))
                     square_candidate = square_candidate.reshape((28, 28, 1))
+                    # cv2.imshow("square_candidate", square_candidate)
+                    # cv2.waitKey(0)
+                    # cv2.destroyAllWindows()
                     self.candidates.append((square_candidate, (y, x)))
 
     def recognizeChar(self):
