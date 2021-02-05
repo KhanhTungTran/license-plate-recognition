@@ -14,6 +14,7 @@ ALPHA_DICT = {0: 'A', 1: 'B', 2: 'C', 3: 'D', 4: 'E', 5: 'F', 6: 'G', 7: 'H', 8:
               13: 'R', 14: 'S', 15: 'T', 16: 'U', 17: 'V', 18: 'X', 19: 'Y', 20: 'Z', 21: '0', 22: '1', 23: '2', 24: '3',
               25: '4', 26: '5', 27: '6', 28: '7', 29: '8', 30: '9', 31: "Background"}
 
+MIN_PIXEL_AREA = 60
 
 class E2E(object):
     def __init__(self):
@@ -57,6 +58,8 @@ class E2E(object):
             
             # license_plate = "".join(predicted_result.split()).replace(":", "").replace("-", "") 
 
+            if len(license_plate) < 8:
+                continue
             # draw labels
             self.image = draw_labels_and_boxes(self.image, license_plate, coordinate)
 
@@ -72,25 +75,32 @@ class E2E(object):
         thresh = (V > T).astype("uint8") * 255
         # convert black pixel of digits to white pixel
         thresh = cv2.bitwise_not(thresh)
-        # cv2.imwrite("step2_2.png", thresh)
         thresh = imutils.resize(thresh, width=400)
-        lines = cv2.HoughLinesP(image=thresh,rho=1,theta=np.pi/180, threshold=200,lines=np.array([]), minLineLength=300,maxLineGap=20)
+        # cv2.imwrite("step2_2.png", thresh)
+        try:
+            lines = cv2.HoughLinesP(image=thresh,rho=1,theta=np.pi/180, threshold=200,lines=np.array([]), minLineLength=300,maxLineGap=20)
 
-        angle = 0
-        for line in lines:
-            my_degree = math.degrees(math.atan2(line[0][3]-line[0][1], line[0][2]-line[0][0]))
-            if -45 < my_degree < 45:
-                angle += my_degree
-        angle /= lines.shape[0]
+            angle = 0
+            num = 0
+            for line in lines:
+                my_degree = math.degrees(math.atan2(line[0][3]-line[0][1], line[0][2]-line[0][0]))
+                if -45 < my_degree < 45:
+                    angle += my_degree
+                    num += 1
+            angle /= num
 
-        # Rotate image to deskew
-        (h, w) = thresh.shape[:2]
-        center = (w // 2, h // 2)
-        M = cv2.getRotationMatrix2D(center, angle, 1.0)
-        thresh = cv2.warpAffine(thresh, M, (w, h), flags=cv2.INTER_CUBIC, borderMode=cv2.BORDER_REPLICATE)
+            # Rotate image to deskew
+            (h, w) = thresh.shape[:2]
+            center = (w // 2, h // 2)
+            M = cv2.getRotationMatrix2D(center, angle, 1.0)
+            thresh = cv2.warpAffine(thresh, M, (w, h), flags=cv2.INTER_CUBIC, borderMode=cv2.BORDER_REPLICATE)
+        except:
+            pass
+
+        # edges = cv2.Canny(thresh,100,200)
         
         # thresh = cv2.medianBlur(thresh, 5)
-        # cv2.imshow("thresh", thresh)
+        # cv2.imshow("edges", edges)
         # cv2.waitKey(0)
         # cv2.destroyAllWindows()
 
@@ -106,7 +116,6 @@ class E2E(object):
             # init mask to store the location of the character candidates
             mask = np.zeros(thresh.shape, dtype="uint8")
             mask[labels == label] = 255
-
             # find contours from mask
             contours, hierarchy = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
@@ -119,7 +128,7 @@ class E2E(object):
                 solidity = cv2.contourArea(contour) / float(w * h)
                 heightRatio = h / float(LpRegion.shape[0])
 
-                if 0.1 < aspectRatio < 1.0 and solidity > 0.1 and 0.35 < heightRatio < 2.0:
+                if h*w > MIN_PIXEL_AREA and 0.25 < aspectRatio < 1.0 and solidity > 0.2 and 0.35 < heightRatio < 2.0:
                     # extract characters
                     candidate = np.array(mask[y:y + h, x:x + w])
                     square_candidate = convert2Square(candidate)
