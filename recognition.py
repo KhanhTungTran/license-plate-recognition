@@ -73,24 +73,12 @@ class E2E(object):
 
 
     def segmentation(self, LpRegion):
-        # lab = cv2.cvtColor(LpRegion, cv2.COLOR_BGR2LAB)
-
-        # lab_planes = cv2.split(lab)
-
+        lab = cv2.cvtColor(LpRegion, cv2.COLOR_BGR2LAB)
+        lab_planes = cv2.split(lab)
         clahe = cv2.createCLAHE(clipLimit=2.0,tileGridSize=(1,1))
-
-        # lab_planes[0] = clahe.apply(lab_planes[0])
-
-        # lab = cv2.merge(lab_planes)
-
-        # LpRegion = cv2.cvtColor(lab, cv2.COLOR_LAB2BGR)
-        hsv = cv2.cvtColor(LpRegion, cv2.COLOR_BGR2HSV)
-        H, S, V = cv2.split(hsv)
-        H = clahe.apply(H)
-        S = clahe.apply(S)
-        V = clahe.apply(V)
-        hsv = cv2.merge((H, S, V))
-        LpRegion = cv2.cvtColor(hsv, cv2.COLOR_HSV2BGR)
+        lab_planes[0] = clahe.apply(lab_planes[0])
+        lab = cv2.merge(lab_planes)
+        LpRegion = cv2.cvtColor(lab, cv2.COLOR_LAB2BGR)
 
         cv2.imshow("Lp", LpRegion)
         
