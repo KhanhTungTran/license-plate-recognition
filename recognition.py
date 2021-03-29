@@ -15,7 +15,7 @@ ALPHA_DICT = {0: 'A', 1: 'B', 2: 'C', 3: 'D', 4: 'E', 5: 'F', 6: 'G', 7: 'H', 8:
               13: 'R', 14: 'S', 15: 'T', 16: 'U', 17: 'V', 18: 'X', 19: 'Y', 20: 'Z', 21: '0', 22: '1', 23: '2', 24: '3',
               25: '4', 26: '5', 27: '6', 28: '7', 29: '8', 30: '9', 31: "Background"}
 
-MIN_PIXEL_AREA = 60
+MIN_PIXEL_AREA = 40
 
 class E2E(object):
     def __init__(self):
@@ -25,6 +25,7 @@ class E2E(object):
         self.recogChar.load_weights('./weights/weight.h5')
         self.candidates = []
 
+
     def extractLP(self):
         coordinates = self.detectLP.detect(self.image)
         if len(coordinates) == 0:
@@ -32,6 +33,7 @@ class E2E(object):
 
         for coordinate in coordinates:
             yield coordinate
+
 
     def predict(self, image):
         # Input image or frame
@@ -41,11 +43,13 @@ class E2E(object):
             self.candidates = []
 
             # convert (x_min, y_min, width, height) to coordinate(top left, top right, bottom left, bottom right)
-            pts = order_points(coordinate)
+            # pts = order_points(coordinate)
 
             # cv2.imshow("before Step1", self.image)
             # crop number plate used by bird's eyes view transformation
-            LpRegion = perspective.four_point_transform(self.image, pts)
+            # LpRegion = perspective.four_point_transform(self.image, pts)
+            x_min, y_min, width, height = coordinate
+            LpRegion = self.image[y_min:y_min+height, x_min:x_min+width]
             # cv2.imwrite('step1.png', LpRegion)
             # cv2.imshow('step1', LpRegion)
             # cv2.waitKey(0)
@@ -72,6 +76,9 @@ class E2E(object):
         return self.image
 
 
+# def 
+
+
     def segmentation(self, LpRegion):
         lab = cv2.cvtColor(LpRegion, cv2.COLOR_BGR2LAB)
         lab_planes = cv2.split(lab)
@@ -80,7 +87,11 @@ class E2E(object):
         lab = cv2.merge(lab_planes)
         LpRegion = cv2.cvtColor(lab, cv2.COLOR_LAB2BGR)
 
-        cv2.imshow("Lp", LpRegion)
+        # gray = cv2.cvtColor(LpRegion, cv2.COLOR_BGR2GRAY)
+        # gray = cv2.bilateralFilter(gray, 11, 17, 17)
+        # edged = cv2.Canny(gray, 30, 200)
+        # edged = clear_border(edged)
+        # cv2.imshow("edge", edged)
         
         V = cv2.split(cv2.cvtColor(LpRegion, cv2.COLOR_BGR2HSV))[2]
         # adaptive threshold
