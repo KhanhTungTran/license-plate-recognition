@@ -42,18 +42,9 @@ class E2E(object):
         for coordinate in self.extractLP():     # detect license plate by yolov3
             self.candidates = []
 
-            # convert (x_min, y_min, width, height) to coordinate(top left, top right, bottom left, bottom right)
-            # pts = order_points(coordinate)
-
-            # cv2.imshow("before Step1", self.image)
-            # crop number plate used by bird's eyes view transformation
-            # LpRegion = perspective.four_point_transform(self.image, pts)
             x_min, y_min, width, height = coordinate
             LpRegion = self.image[y_min:y_min+height, x_min:x_min+width]
-            # cv2.imwrite('step1.png', LpRegion)
-            # cv2.imshow('step1', LpRegion)
-            # cv2.waitKey(0)
-            # cv2.destroyAllWindows()
+
             # segmentation
             self.segmentation(LpRegion)
 
@@ -62,10 +53,6 @@ class E2E(object):
 
             # format and display license plate
             license_plate = self.format()
-            # predicted_result = pytesseract.image_to_string(LpRegion, lang ='eng', 
-            # config ='--oem 3 --psm 6 -c tessedit_char_whitelist=ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789') 
-
-            # license_plate = "".join(predicted_result.split()).replace(":", "").replace("-", "") 
 
             if len(license_plate) < 8:
                 continue
