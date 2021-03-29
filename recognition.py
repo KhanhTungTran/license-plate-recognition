@@ -63,7 +63,28 @@ class E2E(object):
         return self.image
 
 
-# def 
+    def clean_border(self, LpRegion):
+        gray = cv2.cvtColor(LpRegion, cv2.COLOR_BGR2GRAY)
+        gray = cv2.bilateralFilter(gray, 11, 17, 17)
+        edged = cv2.Canny(gray, 30, 200)
+        edged = clear_border(edged)
+
+        cnts = cv2.findContours(edged.copy(), cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+        cnts = imutils.grab_contours(cnts)
+        cnts = sorted(cnts, key=cv2.contourArea, reverse=True)[:4]
+        print(cnts)
+        lpCnt = None
+
+        for c in cnts:
+            peri = cv2.arcLength(c, True)
+            approx = cv2.approxPolyDP(c, 0.05 * peri, True) # TODO: Playing around with this precision value
+            if len(approx) == 4:
+                lpCnt = approx
+                break
+        print(lpCnt)
+        cv2.drawContours(LpRegion, [lpCnt], -1, (0, 255, 0), 3) 
+        cv2.imshow("Game Boy Screen", LpRegion) 
+        cv2.waitKey(0)
 
 
     def segmentation(self, LpRegion):
@@ -74,10 +95,7 @@ class E2E(object):
         lab = cv2.merge(lab_planes)
         LpRegion = cv2.cvtColor(lab, cv2.COLOR_LAB2BGR)
 
-        # gray = cv2.cvtColor(LpRegion, cv2.COLOR_BGR2GRAY)
-        # gray = cv2.bilateralFilter(gray, 11, 17, 17)
-        # edged = cv2.Canny(gray, 30, 200)
-        # edged = clear_border(edged)
+        LpRegion = self.clean_border(LpRegion)
         # cv2.imshow("edge", edged)
         
         V = cv2.split(cv2.cvtColor(LpRegion, cv2.COLOR_BGR2HSV))[2]
