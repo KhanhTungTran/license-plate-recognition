@@ -43,8 +43,8 @@ while cap.isOpened():
             break
         i += 1
         print(i)
-        if i == 200:
-            break
+        # if i == 200:
+        #     break
     except Exception as e:
         print(e)
         continue

@@ -2,6 +2,7 @@ import cv2
 import numpy as np
 from numpy.lib.function_base import angle
 from skimage import measure
+from skimage.segmentation import clear_border
 from imutils import perspective
 import imutils
 from data_utils import order_points, convert2Square, draw_labels_and_boxes
@@ -42,9 +43,13 @@ class E2E(object):
             # convert (x_min, y_min, width, height) to coordinate(top left, top right, bottom left, bottom right)
             pts = order_points(coordinate)
 
+            # cv2.imshow("before Step1", self.image)
             # crop number plate used by bird's eyes view transformation
             LpRegion = perspective.four_point_transform(self.image, pts)
             # cv2.imwrite('step1.png', LpRegion)
+            # cv2.imshow('step1', LpRegion)
+            # cv2.waitKey(0)
+            # cv2.destroyAllWindows()
             # segmentation
             self.segmentation(LpRegion)
 
@@ -55,7 +60,7 @@ class E2E(object):
             license_plate = self.format()
             # predicted_result = pytesseract.image_to_string(LpRegion, lang ='eng', 
             # config ='--oem 3 --psm 6 -c tessedit_char_whitelist=ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789') 
-            
+
             # license_plate = "".join(predicted_result.split()).replace(":", "").replace("-", "") 
 
             if len(license_plate) < 8:
@@ -66,44 +71,73 @@ class E2E(object):
         # cv2.imwrite('example.png', self.image)
         return self.image
 
-    def segmentation(self, LpRegion):
-        # apply thresh to extracted licences plate
-        V = cv2.split(cv2.cvtColor(LpRegion, cv2.COLOR_BGR2HSV))[2]
 
+    def segmentation(self, LpRegion):
+        # lab = cv2.cvtColor(LpRegion, cv2.COLOR_BGR2LAB)
+
+        # lab_planes = cv2.split(lab)
+
+        clahe = cv2.createCLAHE(clipLimit=2.0,tileGridSize=(1,1))
+
+        # lab_planes[0] = clahe.apply(lab_planes[0])
+
+        # lab = cv2.merge(lab_planes)
+
+        # LpRegion = cv2.cvtColor(lab, cv2.COLOR_LAB2BGR)
+        hsv = cv2.cvtColor(LpRegion, cv2.COLOR_BGR2HSV)
+        H, S, V = cv2.split(hsv)
+        H = clahe.apply(H)
+        S = clahe.apply(S)
+        V = clahe.apply(V)
+        hsv = cv2.merge((H, S, V))
+        LpRegion = cv2.cvtColor(hsv, cv2.COLOR_HSV2BGR)
+
+        cv2.imshow("Lp", LpRegion)
+        
+        V = cv2.split(cv2.cvtColor(LpRegion, cv2.COLOR_BGR2HSV))[2]
         # adaptive threshold
         T = threshold_local(V, 15, offset=10, method="gaussian")
         thresh = (V > T).astype("uint8") * 255
         # convert black pixel of digits to white pixel
         thresh = cv2.bitwise_not(thresh)
         thresh = imutils.resize(thresh, width=400)
+        thresh = clear_border(thresh)
         # cv2.imwrite("step2_2.png", thresh)
-        try:
-            lines = cv2.HoughLinesP(image=thresh,rho=1,theta=np.pi/180, threshold=200,lines=np.array([]), minLineLength=300,maxLineGap=20)
+        cv2.imshow("thresh", thresh)
+        cv2.waitKey(0)
+        cv2.destroyAllWindows()
+        # try:
+        #     lines = cv2.HoughLinesP(image=thresh,rho=1,theta=np.pi/180, threshold=200,lines=np.array([]), minLineLength=200,maxLineGap=20)
+        #     angle = 0
+        #     num = 0
+        #     thresh = cv2.cvtColor(thresh, cv2.COLOR_GRAY2BGR)
+        #     for line in lines:
+        #         my_degree = math.degrees(math.atan2(line[0][3]-line[0][1], line[0][2]-line[0][0]))
+        #         if -45 < my_degree < 45:
+        #             angle += my_degree
+        #             num += 1
+        #         cv2.line(thresh, (line[0][0], line[0][1]), (line[0][2], line[0][3]), (255, 0, 0))
+        #     angle /= num
 
-            angle = 0
-            num = 0
-            for line in lines:
-                my_degree = math.degrees(math.atan2(line[0][3]-line[0][1], line[0][2]-line[0][0]))
-                if -45 < my_degree < 45:
-                    angle += my_degree
-                    num += 1
-            angle /= num
+        #     cv2.imshow("draw", thresh)
+        #     cv2.waitKey(0)
+        #     cv2.destroyAllWindows()
+        #     # cv2.imwrite("draw.png", thresh)
+        #     # Rotate image to deskew
+        #     (h, w) = thresh.shape[:2]
+        #     center = (w // 2, h // 2)
+        #     M = cv2.getRotationMatrix2D(center, angle, 1.0)
+        #     thresh = cv2.warpAffine(thresh, M, (w, h), flags=cv2.INTER_CUBIC, borderMode=cv2.BORDER_REPLICATE)
+        # except:
+        #     pass
 
-            # Rotate image to deskew
-            (h, w) = thresh.shape[:2]
-            center = (w // 2, h // 2)
-            M = cv2.getRotationMatrix2D(center, angle, 1.0)
-            thresh = cv2.warpAffine(thresh, M, (w, h), flags=cv2.INTER_CUBIC, borderMode=cv2.BORDER_REPLICATE)
-        except:
-            pass
 
         # edges = cv2.Canny(thresh,100,200)
-        
         # thresh = cv2.medianBlur(thresh, 5)
-        # cv2.imshow("edges", edges)
+        # cv2.imshow("thresh", edges)
         # cv2.waitKey(0)
         # cv2.destroyAllWindows()
-
+        # cv2.imwrite("thresh.png", thresh)
         # connected components analysis
         labels = measure.label(thresh, connectivity=2, background=0)
 

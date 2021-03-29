@@ -19,9 +19,9 @@ class detectNumberPlate(object):
         boxes = []
         classes_id = []
         confidences = []
-        scale = 0.00392
+        scale = 0.00392 #1/255
 
-        blob = cv2.dnn.blobFromImage(image, scalefactor=scale, size=(416, 416), mean=(0, 0), swapRB=True, crop=False)
+        blob = cv2.dnn.blobFromImage(image, scalefactor=scale, size=(416, 416), mean=(104, 117, 123), swapRB=True, crop=False)
         height, width = image.shape[:2]
 
         # take image to model
