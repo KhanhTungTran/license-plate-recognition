@@ -24,6 +24,7 @@ class E2E(object):
         self.recogChar = CNN_Model(trainable=False).model
         self.recogChar.load_weights('./weights/weight.h5')
         self.candidates = []
+        self.preLpCnt = None
 
 
     def extractLP(self):
@@ -64,15 +65,23 @@ class E2E(object):
 
 
     def clean_border(self, LpRegion):
+        LpRegion = imutils.resize(LpRegion, width=400)
         gray = cv2.cvtColor(LpRegion, cv2.COLOR_BGR2GRAY)
-        gray = cv2.bilateralFilter(gray, 11, 17, 17)
-        edged = cv2.Canny(gray, 30, 200)
-        edged = clear_border(edged)
-
-        cnts = cv2.findContours(edged.copy(), cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+        clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8, 8))
+        gray = clahe.apply(gray)
+        blur1 = cv2.GaussianBlur(gray, (11,11), cv2.BORDER_DEFAULT)
+        blur2 = cv2.GaussianBlur(gray, (25,25), cv2.BORDER_DEFAULT)
+        difference = blur2 - blur1
+        # _, difference = cv2.threshold(difference, 127, 255, 0)
+        difference = clear_border(difference)
+        difference = cv2.adaptiveThreshold(difference, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY_INV, 9, 9)
+        cv2.imshow("gray", difference)
+        # edged = cv2.Canny(gray, 50, 125)
+        # cv2.imshow("edged", edged)
+        cnts = cv2.findContours(difference.copy(), cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
         cnts = imutils.grab_contours(cnts)
-        cnts = sorted(cnts, key=cv2.contourArea, reverse=True)[:4]
-        print(cnts)
+        cnts = sorted(cnts, key=cv2.contourArea, reverse=True)[1:3]
+        # print(cnts)
         lpCnt = None
 
         for c in cnts:
@@ -80,21 +89,16 @@ class E2E(object):
             approx = cv2.approxPolyDP(c, 0.05 * peri, True) # TODO: Playing around with this precision value
             if len(approx) == 4:
                 lpCnt = approx
+                self.preLpCnt = lpCnt
                 break
-        print(lpCnt)
-        cv2.drawContours(LpRegion, [lpCnt], -1, (0, 255, 0), 3) 
-        cv2.imshow("Game Boy Screen", LpRegion) 
+        # cv2.drawContours(LpRegion, [cnts[0]], -1, (0, 255, 0), 3)
+        # cv2.drawContours(LpRegion, [cnts[1]], -1, (255, 255, 0), 3)
+        cv2.drawContours(LpRegion, [self.preLpCnt], -1, (255, 255, 0), 3)
+        cv2.imshow("ROI", LpRegion)
         cv2.waitKey(0)
 
 
     def segmentation(self, LpRegion):
-        lab = cv2.cvtColor(LpRegion, cv2.COLOR_BGR2LAB)
-        lab_planes = cv2.split(lab)
-        clahe = cv2.createCLAHE(clipLimit=2.0,tileGridSize=(1,1))
-        lab_planes[0] = clahe.apply(lab_planes[0])
-        lab = cv2.merge(lab_planes)
-        LpRegion = cv2.cvtColor(lab, cv2.COLOR_LAB2BGR)
-
         LpRegion = self.clean_border(LpRegion)
         # cv2.imshow("edge", edged)
         
