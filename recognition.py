@@ -64,18 +64,39 @@ class E2E(object):
         return self.image
 
 
+    def check_four_corners(self, rec):
+        topLeft = topRight = bottomLeft = bottomRight = 0
+        w, h = rec.shape[:2]
+        for corner in rec:
+            if corner[0] < w/2 and corner[1] < h/2:
+                topLeft += 1
+            elif corner[0] > w/2 and corner[1] < h/2:
+                topRight += 1
+            elif corner[0] < w/2 and corner[1] > h/2:
+                bottomLeft += 1
+            else:
+                bottomRight += 1
+        return topLeft == topRight == bottomLeft == bottomRight == 1
+
+
     def clean_border(self, LpRegion):
         LpRegion = imutils.resize(LpRegion, width=400)
+        lab = cv2.cvtColor(LpRegion, cv2.COLOR_BGR2LAB)
+        lab_planes = cv2.split(lab)
+        clahe = cv2.createCLAHE(clipLimit=2.0,tileGridSize=(4,4))
+        lab_planes[0] = clahe.apply(lab_planes[0])
+        lab = cv2.merge(lab_planes)
+        LpRegion = cv2.cvtColor(lab, cv2.COLOR_LAB2BGR)
         gray = cv2.cvtColor(LpRegion, cv2.COLOR_BGR2GRAY)
-        clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8, 8))
-        gray = clahe.apply(gray)
-        blur1 = cv2.GaussianBlur(gray, (11,11), cv2.BORDER_DEFAULT)
-        blur2 = cv2.GaussianBlur(gray, (25,25), cv2.BORDER_DEFAULT)
+        # clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8, 8))
+        # gray = clahe.apply(gray)
+        blur1 = cv2.GaussianBlur(gray, (11,11), cv2.BORDER_CONSTANT)
+        blur2 = cv2.GaussianBlur(gray, (25,25), cv2.BORDER_CONSTANT)
         difference = blur2 - blur1
         # _, difference = cv2.threshold(difference, 127, 255, 0)
         difference = clear_border(difference)
         difference = cv2.adaptiveThreshold(difference, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY_INV, 9, 9)
-        cv2.imshow("gray", difference)
+        # cv2.imshow("gray", difference)
         # edged = cv2.Canny(gray, 50, 125)
         # cv2.imshow("edged", edged)
         cnts = cv2.findContours(difference.copy(), cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
@@ -91,11 +112,12 @@ class E2E(object):
                 lpCnt = approx
                 self.preLpCnt = lpCnt
                 break
-        # cv2.drawContours(LpRegion, [cnts[0]], -1, (0, 255, 0), 3)
-        # cv2.drawContours(LpRegion, [cnts[1]], -1, (255, 255, 0), 3)
-        cv2.drawContours(LpRegion, [self.preLpCnt], -1, (255, 255, 0), 3)
-        cv2.imshow("ROI", LpRegion)
-        cv2.waitKey(0)
+        
+        if lpCnt is not None and self.check_four_corners(self.preLpCnt):
+            return LpRegion
+        # cv2.drawContours(LpRegion, [self.preLpCnt], -1, (255, 255, 0), 3)
+        # cv2.imshow("ROI", LpRegion)
+        # cv2.waitKey(0)
 
 
     def segmentation(self, LpRegion):
